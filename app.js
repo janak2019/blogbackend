@@ -1,0 +1,141 @@
+require('dotenv').config()
+const express = require('express')
+const connectToDatabase = require('./database')
+const Blog = require('./model/blogModel')
+const app = express()
+const cors = require('cors')
+const { storage, multer } = require('./middleware/multerConfig')
+const upload = multer({ storage: storage })
+const fs = require('fs')
+const { request } = require('http')
+app.use(express.json()) //json lai bujne code 
+connectToDatabase()
+
+app.use(cors(
+    {
+        origin: "http://localhost:5173",
+        origin: "https://blogfrontend-oysi.vercel.app/",
+        origin : "https://blogfrontend-oysi.vercel.app"
+
+
+    }
+))
+
+
+app.get("/", (req, res) => {
+    // json bhaneko jhola ho yasma j pani bokna milyo
+    res.json({
+        message: 'This is home page'
+    })
+
+})
+app.get("/about", (req, res) => {
+    res.json({
+        message: 'This is about page'
+    })
+
+})
+//post or upload to database api
+app.post("/blog", upload.single('image'), async (req, res) => {
+    const { title, subtitle, description, image } = req.body
+    let filename;
+    if(req.file){
+     filename =  req.file.filename
+    }else{
+        filename = "bird.png"
+    }
+    if (!title || !subtitle || !description) {
+        return res.status(400).json({
+            message: "Please provide title,subtitle,description,image"
+        })
+    }
+
+    await Blog.create({
+        title: title,
+        subtitle: subtitle,
+        description: description,
+        image: filename
+    })
+
+    res.status(200).json({
+        message: 'The blog hit successfully'
+    })
+})
+// get or fetch all data from backend api
+app.get("/blog",async(req,res)=>{
+   const blogs = await Blog.find() //returns array
+   res.status(200).json({
+    message:"Blog fetched successfully",
+    data : blogs
+   })
+})
+app.get("/blog/:id",async(req,res)=>{
+    const id = req.params.id 
+    const blog = await Blog.findById(id) //object
+    if(!blog){
+        return res.status(404).json({
+            message: "no data found"
+        })
+    }else{
+        return res.status(200).json({
+            message: "Fetched Successfully",
+            data : blog
+
+        })
+    }
+})
+//delete blog by id api
+app.delete("/blog/:id",async(req,res)=>{
+
+    const id = req.params.id
+    const blog = await Blog.findById(id)
+    const imageName = blog.image
+    //delete related id image also from storage folder
+    fs.unlink(`storage/${imageName}`,(err)=>{
+        if(err){
+            console.log(err)
+        }else{
+            console.log("File deleted Successfully")
+        }
+    })
+    await Blog.findByIdAndDelete(id)
+    return res.status(200).json({
+        message : "Blog Deleted successfully"
+    })
+
+})
+
+app.patch("/blog/:id",upload.single('image'),async(req,res)=>{
+    const id = req.params.id
+    const {title,subtitle,description} = req.body
+    let imageName;
+    if (req.file) {
+        imageName ="http://localhost:3000/" + req.file.filename
+        const blog = await Blog.findById(id)
+        const oldimageName = blog.image
+        //delete related id image also from storage folder
+        fs.unlink(`storage/${imageName}`, (err) => {
+            if (err) {
+                console.log(err)
+            } else {
+                console.log("File deleted Successfully")
+            }
+        })
+
+    }
+    await Blog.findByIdAndUpdate(id,{
+        title : title,
+        subtitle : subtitle,
+        description : description,
+        image : imageName
+    })
+    return res.status(200).json({
+        message : "Blog Updated successfully"
+    })
+
+})
+
+app.use(express.static('./storage')) // image access garna dine code
+app.listen(process.env.PORT, () => {
+    // console.log('NodeJs Project has started')
+})
