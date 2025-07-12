@@ -13,7 +13,7 @@ connectToDatabase()
 
 app.use(cors(
     {
-        
+        origin: "http://localhost:5173",
         origin: "https://blogfrontend-oysi.vercel.app/",
         origin : "https://blogfrontend-oysi.vercel.app"
 
@@ -29,7 +29,6 @@ app.get("/", (req, res) => {
     })
 
 })
-
 
 //post or upload to database api
 app.post("/blog", upload.single('image'), async (req, res) => {
